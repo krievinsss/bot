@@ -147,3 +147,21 @@ npm test
 ```
 
 The repository includes crypto/password unit tests. Database integration tests for simultaneous purchases and webhook idempotency should be run against a disposable PostgreSQL test database before each production release.
+
+## Browser-first administrator setup
+
+For Vercel deployments you do not need shell access or `npm run db:seed` to create the first administrator.
+
+1. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in Vercel Environment Variables. The password must be at least 12 characters.
+2. Redeploy the project so the deployment receives the new variables.
+3. Open `/admin`.
+4. When no administrator exists, the application redirects to `/admin/setup`.
+5. Click **Initialize administrator**. The server creates exactly one active `OWNER` account using the environment variables. Secret values are never sent to the browser.
+6. You are redirected to `/admin/login`. Sign in with the same email and password configured in Vercel.
+7. As soon as any administrator exists, `/admin/setup` redirects to `/admin/login` and can no longer create another administrator.
+
+If login rate limiting was triggered by earlier failed attempts, wait approximately 15 minutes before retrying.
+
+### Recovering admin access
+
+If an older deployment already created one administrator with stale seed credentials, open `/admin/setup` manually and click **Synchronize administrator credentials**. The server will update the sole administrator to the current `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` values and clear failed login attempts for that email. Browser input cannot choose the replacement credentials.
