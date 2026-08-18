@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import crypto from 'crypto'; process.env.DATA_ENCRYPTION_KEY=crypto.randomBytes(32).toString('base64'); const {encrypt,decrypt}=await import('../lib/encryption.js'); test('AES-256-GCM roundtrip',()=>{const e=encrypt('private value');assert.notEqual(e,'private value');assert.equal(decrypt(e),'private value')});

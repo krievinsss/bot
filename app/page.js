@@ -1,0 +1,1 @@
+export default function Home(){ return <main className="min-h-screen grid place-items-center p-8"><div className="card max-w-xl"><h1 className="text-3xl font-bold">Service online</h1><p className="muted mt-3">Customer interactions are handled through Telegram.</p></div></main>; }

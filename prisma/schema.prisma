@@ -1,0 +1,221 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum AccountStatus { ACTIVE DISABLED }
+enum OrderStatus { PENDING PAID COMPLETED CANCELLED REFUNDED }
+enum PaymentStatus { CREATED APPROVED COMPLETED FAILED CANCELLED }
+enum WalletType { DEPOSIT PURCHASE REFUND AFFILIATE_REWARD ADMIN_ADJUSTMENT }
+enum TicketStatus { OPEN WAITING CLOSED }
+enum BroadcastStatus { DRAFT QUEUED SENDING COMPLETED FAILED }
+enum AdminRole { OWNER ADMIN SUPPORT }
+
+model User {
+  id String @id @default(cuid())
+  telegramId BigInt @unique
+  username String?
+  firstName String?
+  balance Decimal @default(0) @db.Decimal(12,2)
+  accountStatus AccountStatus @default(ACTIVE)
+  referralParentId String?
+  referralParent User? @relation("Referrals", fields:[referralParentId], references:[id])
+  referrals User[] @relation("Referrals")
+  referralCount Int @default(0)
+  lifetimeCommission Decimal @default(0) @db.Decimal(12,2)
+  affiliateBalance Decimal @default(0) @db.Decimal(12,2)
+  notificationEnabled Boolean @default(true)
+  pendingAction String?
+  lastActivity DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders Order[]
+  payments Payment[]
+  walletTransactions WalletTransaction[]
+  tickets SupportTicket[]
+  @@index([accountStatus])
+}
+
+model Admin {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  role AdminRole @default(ADMIN)
+  totpSecretEnc String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions AdminSession[]
+}
+model AdminSession {
+  id String @id @default(cuid())
+  adminId String
+  admin Admin @relation(fields:[adminId], references:[id], onDelete:Cascade)
+  tokenHash String @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  @@index([adminId, expiresAt])
+}
+model LoginAttempt {
+  id String @id @default(cuid())
+  key String
+  ok Boolean
+  createdAt DateTime @default(now())
+  @@index([key, createdAt])
+}
+model City {
+  id String @id @default(cuid())
+  name String @unique
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  locations Location[]
+}
+model Product {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  description String
+  price Decimal @db.Decimal(12,2)
+  imageUrl String?
+  category String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  inventory Inventory[]
+  orders Order[]
+}
+model Location {
+  id String @id @default(cuid())
+  cityId String
+  city City @relation(fields:[cityId], references:[id], onDelete:Restrict)
+  name String
+  publicName String?
+  privateAddressEnc String
+  latitudeEnc String
+  longitudeEnc String
+  privateImagePath String?
+  privateInstructionsEnc String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  inventory Inventory[]
+  orders Order[]
+  @@index([cityId, active])
+}
+model Inventory {
+  id String @id @default(cuid())
+  productId String
+  locationId String
+  product Product @relation(fields:[productId], references:[id], onDelete:Cascade)
+  location Location @relation(fields:[locationId], references:[id], onDelete:Cascade)
+  quantity Int @default(0)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([productId, locationId])
+  @@index([productId, active, quantity])
+}
+model Order {
+  id String @id @default(cuid())
+  publicOrderId String @unique
+  userId String
+  productId String
+  locationId String
+  user User @relation(fields:[userId], references:[id])
+  product Product @relation(fields:[productId], references:[id])
+  location Location @relation(fields:[locationId], references:[id])
+  productNameSnapshot String
+  price Decimal @db.Decimal(12,2)
+  cityNameSnapshot String
+  status OrderStatus @default(PAID)
+  idempotencyKey String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId, createdAt])
+}
+model WalletTransaction {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields:[userId], references:[id])
+  type WalletType
+  amount Decimal @db.Decimal(12,2)
+  balanceBefore Decimal @db.Decimal(12,2)
+  balanceAfter Decimal @db.Decimal(12,2)
+  referenceId String?
+  reason String?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+model Payment {
+  id String @id @default(cuid())
+  publicId String @unique
+  userId String
+  user User @relation(fields:[userId], references:[id])
+  provider String @default("PAYPAL")
+  providerOrderId String? @unique
+  providerCaptureId String? @unique
+  amount Decimal @db.Decimal(12,2)
+  currency String @default("EUR")
+  status PaymentStatus @default(CREATED)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId, createdAt])
+}
+model ProcessedWebhook {
+  id String @id @default(cuid())
+  provider String
+  eventId String
+  eventType String
+  createdAt DateTime @default(now())
+  @@unique([provider, eventId])
+}
+model SupportTicket {
+  id String @id @default(cuid())
+  publicId String @unique
+  userId String
+  user User @relation(fields:[userId], references:[id])
+  status TicketStatus @default(OPEN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages SupportMessage[]
+}
+model SupportMessage {
+  id String @id @default(cuid())
+  ticketId String
+  ticket SupportTicket @relation(fields:[ticketId], references:[id], onDelete:Cascade)
+  sender String
+  message String
+  createdAt DateTime @default(now())
+}
+model Broadcast {
+  id String @id @default(cuid())
+  title String
+  body String
+  imageUrl String?
+  buttonText String?
+  buttonUrl String?
+  target String @default("ALL")
+  status BroadcastStatus @default(DRAFT)
+  sent Int @default(0)
+  failed Int @default(0)
+  cursor String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model AuditLog {
+  id String @id @default(cuid())
+  event String
+  actorType String
+  actorId String?
+  targetType String?
+  targetId String?
+  ipHash String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([event, createdAt])
+}
+model Setting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}

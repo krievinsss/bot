@@ -1,0 +1,1 @@
+export default function Page(){return <main className="min-h-screen grid place-items-center p-8"><div className="card"><h1 className="text-2xl font-bold">Payment submitted</h1><p className="muted mt-2">Your wallet will be credited only after PayPal confirms the payment. You can return to Telegram.</p></div></main>}

@@ -1,0 +1,1 @@
+'use client'; import {useRouter} from 'next/navigation'; export default function ToggleButton({resource,id,field,value,label}){const r=useRouter();return <button className="btn secondary" onClick={async()=>{await fetch(`/api/admin/data/${resource}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id,[field]:value})});r.refresh()}}>{label}</button>}
